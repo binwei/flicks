@@ -14,6 +14,8 @@ class MoviesViewController: UIViewController, UITableViewDataSource, UITableView
     
     @IBOutlet weak var moviesTableView: UITableView!
     
+    @IBOutlet weak var networkErrorLabel: UILabel!
+    
     var movieResults: [NSDictionary]! = [NSDictionary]()
     
     override func viewDidLoad() {
@@ -24,6 +26,7 @@ class MoviesViewController: UIViewController, UITableViewDataSource, UITableView
         self.moviesTableView.dataSource = self
         self.moviesTableView.delegate = self
         
+        self.networkErrorLabel.hidden = true
         self.loadDataFromMoviesDatabase {
             print("Initial data load completed with \(self.movieResults!.count) movies")
         }
@@ -58,19 +61,22 @@ class MoviesViewController: UIViewController, UITableViewDataSource, UITableView
                 MBProgressHUD.hideHUDForView(self.view, animated: true)
                 
                 if let data = dataOrNil {
+                    self.networkErrorLabel.hidden = true
+                    
                     if let responseDictionary = try! NSJSONSerialization.JSONObjectWithData(
                         data, options:[]) as? NSDictionary {
                         // NSLog("response: \(responseDictionary["results"])")
                         self.movieResults = responseDictionary["results"] as! [NSDictionary]
                         
                         self.moviesTableView.reloadData()
-                        
-                        completionHandler()
                     }
                 }
                 else {
-                    
+                    NSLog("Error: \(error)")
+                    self.networkErrorLabel.hidden = false
                 }
+                
+                completionHandler()
         });
         task.resume()
     }
@@ -94,16 +100,40 @@ class MoviesViewController: UIViewController, UITableViewDataSource, UITableView
         
         cell.titleLabel.text = title
         cell.overviewLabel.text = overview
-        cell.addSubview(cell.overviewLabel)
         cell.overviewLabel.sizeToFit()
         
         if let posterPath = movie["poster_path"] as? String {
-            let baseUrl = "https://image.tmdb.org/t/p/w342"
-            let imageUrl = NSURL(string:baseUrl + posterPath)
-            cell.posterImage.setImageWithURL(imageUrl!)
+            loadImageWithFadeIn(cell.posterImage, posterPath: posterPath)
         }
         
         return cell
+    }
+    
+    func loadImageWithFadeIn(imageView: UIImageView, posterPath: String) {
+        let imageRequest = NSURLRequest(URL: NSURL(string: "https://image.tmdb.org/t/p/w342" + posterPath)!)
+        
+        imageView.setImageWithURLRequest(
+            imageRequest,
+            placeholderImage: nil,
+            success: { (imageRequest, imageResponse, image) -> Void in
+                
+                // imageResponse will be nil if the image is cached
+                if (imageResponse != nil) {
+                    // print("Image was NOT cached, fade in image for \(posterPath)")
+                    imageView.alpha = 0.0
+                    imageView.image = image
+                    UIView.animateWithDuration(0.3, animations: { () -> Void in
+                        imageView.alpha = 1.0
+                    })
+                } else {
+                    // print("Image was cached so just update the image for \(posterPath)")
+                    imageView.image = image
+                }
+            },
+            failure: { (imageRequest, imageResponse, error) -> Void in
+                // do something for the failure condition
+                imageView.image = nil
+        })
     }
     
     func tableView(tableView: UITableView, didSelectRowAtIndexPath indexPath: NSIndexPath) {

@@ -35,10 +35,60 @@ class MovieDetailViewController: UIViewController {
         self.scrollView.addSubview(self.overviewLabel)
         
         if let posterPath = movie["poster_path"] as? String {
-            let baseUrl = "https://image.tmdb.org/t/p/original"
-            let imageUrl = NSURL(string:baseUrl + posterPath)
-            self.posterImage.setImageWithURL(imageUrl!)
+            loadImageLowResThenFadeInHighRes(posterPath)
         }
+    }
+    
+    func loadImageLowResThenFadeInHighRes(posterPath: String) {
+        let smallImageRequest = NSURLRequest(URL: NSURL(string: "https://image.tmdb.org/t/p/w45" + posterPath)!)
+        let largeImageRequest = NSURLRequest(URL: NSURL(string: "https://image.tmdb.org/t/p/original" + posterPath)!)
+        
+        self.posterImage.setImageWithURLRequest(
+            smallImageRequest,
+            placeholderImage: nil,
+            success: { (smallImageRequest, smallImageResponse, smallImage) -> Void in
+                
+                self.posterImage.image = smallImage
+                
+                if (smallImageResponse != nil) {
+                    // NSLog("Loaded small image from network for \(posterPath)")
+                    
+                    self.posterImage.alpha = 0.0
+                    UIView.animateWithDuration(0.5, animations: { () -> Void in
+                        self.posterImage.alpha = 1.0
+                        }, completion: { (success) -> Void in
+                            // The AFNetworking ImageView Category only allows one request to be sent at a time
+                            // per ImageView. This code must be in the completion block.
+                            self.posterImage.setImageWithURLRequest(
+                                largeImageRequest,
+                                placeholderImage: smallImage,
+                                success: { (largeImageRequest, largeImageResponse, largeImage) -> Void in
+                                    
+                                    self.posterImage.image = largeImage
+                                    
+                                    if (largeImageResponse != nil) {
+                                        // NSLog("Loaded large image from network for \(posterPath)")
+                                    }
+                                    else {
+                                        //NSLog("Loaded large image from cache for \(posterPath)")
+                                    }
+                                },
+                                failure: { (request, response, error) -> Void in
+                                    // do something for the failure condition of the large image request
+                                    // possibly setting the ImageView's image to a default image
+                            })
+                    })
+                }
+                else {
+                    // NSLog("Loaded small image from cache for \(posterPath)")
+                    self.posterImage.setImageWithURL(largeImageRequest.URL!)
+                    // NSLog("Loaded large image from cache for \(posterPath)")
+                }
+                
+            },
+            failure: { (request, response, error) -> Void in
+                self.posterImage.image = nil
+        })
     }
     
     override func didReceiveMemoryWarning() {
