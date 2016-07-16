@@ -8,6 +8,7 @@
 
 import UIKit
 import AFNetworking
+import MBProgressHUD
 
 class MoviesViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
     
@@ -23,6 +24,23 @@ class MoviesViewController: UIViewController, UITableViewDataSource, UITableView
         self.moviesTableView.dataSource = self
         self.moviesTableView.delegate = self
         
+        self.loadDataFromMoviesDatabase {
+            print("Initial data load completed with \(self.movieResults!.count) movies")
+        }
+        
+        let refreshControl = UIRefreshControl()
+        refreshControl.addTarget(self, action: #selector(refreshControlAction(_:)), forControlEvents: UIControlEvents.ValueChanged)
+        moviesTableView.insertSubview(refreshControl, atIndex: 0)
+    }
+    
+    func refreshControlAction(refreshControl: UIRefreshControl) {
+        loadDataFromMoviesDatabase {
+            refreshControl.endRefreshing()
+            print("Refreshing completed with \(self.movieResults!.count) movies")
+        }
+    }
+    
+    func loadDataFromMoviesDatabase(completionHandler: () -> Void) {
         let clientId = "a07e22bc18f5cb106bfe4cc1f83ad8ed"
         let url = NSURL(string:"https://api.themoviedb.org/3/movie/now_playing?api_key=\(clientId)")
         let request = NSURLRequest(URL: url!)
@@ -32,9 +50,13 @@ class MoviesViewController: UIViewController, UITableViewDataSource, UITableView
             delegateQueue:NSOperationQueue.mainQueue()
         )
         
+        MBProgressHUD.showHUDAddedTo(self.view, animated: true)
+        
         let task : NSURLSessionDataTask = session.dataTaskWithRequest(request,
                                                                       completionHandler:
             { (dataOrNil, response, error) in
+                MBProgressHUD.hideHUDForView(self.view, animated: true)
+                
                 if let data = dataOrNil {
                     if let responseDictionary = try! NSJSONSerialization.JSONObjectWithData(
                         data, options:[]) as? NSDictionary {
@@ -42,20 +64,15 @@ class MoviesViewController: UIViewController, UITableViewDataSource, UITableView
                         self.movieResults = responseDictionary["results"] as! [NSDictionary]
                         
                         self.moviesTableView.reloadData()
+                        
+                        completionHandler()
                     }
+                }
+                else {
+                    
                 }
         });
         task.resume()
-        
-        let refreshControl = UIRefreshControl()
-        refreshControl.addTarget(self, action: #selector(refreshControlAction(_:)), forControlEvents: UIControlEvents.ValueChanged)
-        moviesTableView.insertSubview(refreshControl, atIndex: 0)
-    }
-    
-    func refreshControlAction(refreshControl: UIRefreshControl) {
-        // TODO
-        
-        
     }
     
     override func didReceiveMemoryWarning() {
@@ -74,16 +91,17 @@ class MoviesViewController: UIViewController, UITableViewDataSource, UITableView
         let movie = movieResults![indexPath.row]
         let title = movie["original_title"] as! String
         let overview = movie["overview"] as! String
-        let posterPath = movie["poster_path"] as! String
-        
-        // print("row \(indexPath.row) has title = \(title) and poster = \(posterPath)")
         
         cell.titleLabel.text = title
         cell.overviewLabel.text = overview
+        cell.addSubview(cell.overviewLabel)
+        cell.overviewLabel.sizeToFit()
         
-        let baseUrl = "https://image.tmdb.org/t/p/w342"
-        let imageUrl = NSURL(string:baseUrl + posterPath)
-        cell.posterImage.setImageWithURL(imageUrl!)
+        if let posterPath = movie["poster_path"] as? String {
+            let baseUrl = "https://image.tmdb.org/t/p/w342"
+            let imageUrl = NSURL(string:baseUrl + posterPath)
+            cell.posterImage.setImageWithURL(imageUrl!)
+        }
         
         return cell
     }
