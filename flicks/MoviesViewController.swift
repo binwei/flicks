@@ -18,6 +18,8 @@ class MoviesViewController: UIViewController, UITableViewDataSource, UITableView
     
     var movieResults: [NSDictionary]! = [NSDictionary]()
     
+    var endPoint: String!
+    
     override func viewDidLoad() {
         super.viewDidLoad()
         
@@ -45,7 +47,7 @@ class MoviesViewController: UIViewController, UITableViewDataSource, UITableView
     
     func loadDataFromMoviesDatabase(completionHandler: () -> Void) {
         let clientId = "a07e22bc18f5cb106bfe4cc1f83ad8ed"
-        let url = NSURL(string:"https://api.themoviedb.org/3/movie/now_playing?api_key=\(clientId)")
+        let url = NSURL(string:"https://api.themoviedb.org/3/movie/\(endPoint)?api_key=\(clientId)")
         let request = NSURLRequest(URL: url!)
         let session = NSURLSession(
             configuration: NSURLSessionConfiguration.defaultSessionConfiguration(),
