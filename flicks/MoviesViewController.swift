@@ -10,15 +10,20 @@ import UIKit
 import AFNetworking
 import MBProgressHUD
 
-class MoviesViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
+class MoviesViewController: UIViewController, UITableViewDataSource, UITableViewDelegate, UISearchBarDelegate {
     
     @IBOutlet weak var moviesTableView: UITableView!
     
     @IBOutlet weak var networkErrorLabel: UILabel!
     
+    @IBOutlet weak var searchBar: UISearchBar!
+    
     var movieResults: [NSDictionary]! = [NSDictionary]()
     
     var endPoint: String!
+    
+    var searchActive: Bool = false
+    var filtered: [NSDictionary] = []
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -27,6 +32,8 @@ class MoviesViewController: UIViewController, UITableViewDataSource, UITableView
         
         self.moviesTableView.dataSource = self
         self.moviesTableView.delegate = self
+        self.searchBar.delegate = self
+        self.searchBar.showsCancelButton = true
         
         self.networkErrorLabel.hidden = true
         self.loadDataFromMoviesDatabase {
@@ -90,13 +97,18 @@ class MoviesViewController: UIViewController, UITableViewDataSource, UITableView
     
     
     func tableView(tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return movieResults.count
+        if (searchActive) {
+            return filtered.count
+        }
+        else {
+            return movieResults.count
+        }
     }
     
     func tableView(tableView: UITableView, cellForRowAtIndexPath indexPath: NSIndexPath) -> UITableViewCell {
         let cell = moviesTableView.dequeueReusableCellWithIdentifier("Movie Cell", forIndexPath: indexPath) as! MovieViewCell
         
-        let movie = movieResults![indexPath.row]
+        let movie = movieAtRow(indexPath)
         let title = movie["original_title"] as! String
         let overview = movie["overview"] as! String
         
@@ -109,6 +121,15 @@ class MoviesViewController: UIViewController, UITableViewDataSource, UITableView
         }
         
         return cell
+    }
+    
+    func movieAtRow(indexPath: NSIndexPath) -> NSDictionary {
+        if (searchActive) {
+            return filtered[indexPath.row]
+        }
+        else {
+            return movieResults[indexPath.row]
+        }
     }
     
     func loadImageWithFadeIn(imageView: UIImageView, posterPath: String) {
@@ -139,8 +160,36 @@ class MoviesViewController: UIViewController, UITableViewDataSource, UITableView
     }
     
     func tableView(tableView: UITableView, didSelectRowAtIndexPath indexPath: NSIndexPath) {
-        moviesTableView.deselectRowAtIndexPath(indexPath, animated:true)
+        self.moviesTableView.deselectRowAtIndexPath(indexPath, animated:true)
     }
+    
+    func searchBarCancelButtonClicked(searchBar: UISearchBar) {
+        self.searchActive = false
+        let editing = self.view.endEditing(true)
+        NSLog("searchBarCancelButtonClicked: endEditing = \(editing)")
+    }
+    
+    func searchBarSearchButtonClicked(searchBar: UISearchBar) {
+        self.searchActive = false
+        self.view.endEditing(true)
+    }
+    
+    func searchBar(searchBar: UISearchBar, textDidChange searchText: String) {
+        
+        filtered = movieResults.filter({ (movie) -> Bool in
+            let range = movie["original_title"]!.rangeOfString(searchText, options: NSStringCompareOptions.CaseInsensitiveSearch)
+            return range.location != NSNotFound
+        })
+        NSLog("Found \(filtered.count) movies that match \(searchText)")
+        
+        if (filtered.count == 0){
+            self.searchActive = false;
+        } else {
+            self.searchActive = true;
+        }
+        self.moviesTableView.reloadData()
+    }
+    
     
     // MARK: - Navigation
     
@@ -153,6 +202,6 @@ class MoviesViewController: UIViewController, UITableViewDataSource, UITableView
         let cell = sender as! MovieViewCell
         let indexPath = moviesTableView.indexPathForCell(cell)
         
-        vc.movie = movieResults[indexPath!.row]
+        vc.movie = movieAtRow(indexPath!)
     }
 }
