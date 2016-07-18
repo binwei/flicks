@@ -167,10 +167,10 @@ class MoviesViewController: UIViewController, UITableViewDataSource, UITableView
         self.searchActive = false
         let editing = self.view.endEditing(true)
         NSLog("searchBarCancelButtonClicked: endEditing = \(editing)")
+        self.moviesTableView.reloadData()
     }
     
     func searchBarSearchButtonClicked(searchBar: UISearchBar) {
-        self.searchActive = false
         self.view.endEditing(true)
     }
     
